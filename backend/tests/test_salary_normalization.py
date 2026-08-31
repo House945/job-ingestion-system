@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -7,7 +8,7 @@ from jobs.models.raw import RawJob
 from jobs.normalization.salary import normalize_salary
 
 
-def _raw(**kwargs) -> RawJob:
+def _raw(**kwargs: Any) -> RawJob:
     return RawJob(source_index=0, **kwargs)
 
 
