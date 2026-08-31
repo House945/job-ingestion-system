@@ -1,6 +1,8 @@
 # Design Decisions
 
-Interpretation and design choices made while implementing this system, with the alternatives that were considered and rejected. Where the brief was ambiguous, the ambiguity is named rather than resolved silently.
+Interpretation and design choices made while implementing this system, with the
+alternatives that were considered and rejected. Where the brief was ambiguous,
+the ambiguity is named rather than resolved silently.
 
 ---
 
@@ -82,6 +84,8 @@ Interpretation and design choices made while implementing this system, with the 
 
 **Consequence.** The two UK postings marked remote are rejected on geography. The staffing-firm posting with `location: null` passes geography despite being remote, which is counterintuitive but consistent with the same reading.
 
+**Implementation.** The distinction is carried by the country classification: `UNKNOWN` means "no identifiable place" and pairs with remote to reach the remote-anywhere market, while `OTHER` means "a specific country we do not publish to" and does not. See decision 17.
+
 ---
 
 ## 9. "Consulting Agency" is not a staffing firm
@@ -153,3 +157,93 @@ Interpretation and design choices made while implementing this system, with the 
 **Decision.** The feed is read and processed during FastAPI's lifespan startup, from a path supplied by environment variable.
 
 **Rationale.** Adequate for a system whose input is a static file, and it keeps the demo to one command. In production, ingestion would be a scheduled or event-driven job writing to a persistent store, decoupled from the API process lifecycle — the pipeline is already a standalone component with no dependency on FastAPI, so that change requires no restructuring.
+
+---
+
+## 17. Geography and compensation meet in a market policy
+
+**Decision.** A **market** is a place we publish to, carrying its own compensation thresholds. `MarketPolicy` resolves a posting to a market or to nothing. The geography rule asks whether a market exists; the salary rule asks that market for its thresholds.
+
+**Rationale.** The brief's forward-looking example — remote UK postings qualifying at 90k USD — couples two criteria that a naive design keeps independent. Fully independent rules cannot express a condition spanning both without the engine mediating between them, and an engine that knows about specific rule interactions stops being extensible.
+
+Routing both rules through one policy keeps the coupling in a single named place, where it can be read and changed, rather than distributing it across the rules or hiding it in the engine.
+
+**Consequence.** Adding a market is one entry in `PUBLISHED_MARKETS`. The remote-UK example is implemented as a test (`test_future_rule.py`) that adds `remote_uk` with a 90,000 threshold and asserts the previously rejected posting is approved. No rule, engine or pipeline code changes.
+
+**Rejected alternative.** "Acceptance profiles" — alternative sets of conditions combined with OR. More general, but rejection reporting degenerates: a posting failing every profile produces a cartesian product of reasons, and the log stops being diagnostic. Given that the log's value is precisely its diagnostic quality (decision 11), the trade was not worth making.
+
+**Cost, stated plainly.** The rules are no longer fully independent — two of six share a collaborator. That is a real reduction in isolation, accepted because the criteria themselves are not independent.
+
+---
+
+## 18. Salary thresholds are strict inequalities
+
+**Decision.** A posting qualifies when compensation is **strictly greater** than the threshold. Exactly 100,000/year or exactly 45/hour is rejected.
+
+**Rationale.** The brief says "over $100,000" and "above $45/hour". Both read as strict.
+
+**Consequence.** None on the sample feed, which contains no boundary values. Recorded because a boundary decision made silently is a boundary decision nobody can audit, and the tests assert both sides of it.
+
+---
+
+## 19. Adapters unify shape; they do not interpret meaning
+
+**Decision.** A source adapter decides which key holds the city and which holds the salary amount. It does not decide what a country means, whether a bare number is hourly, or which currency an unlabelled amount is in. Fields absent from a feed layout are left as `None`.
+
+**Rationale.** Two reasons, and the second matters more.
+
+Assumptions duplicated across adapters drift. If the flat adapter defaulted currency to USD, so would the structured one, and a third feed layout would carry a third copy of the same constant. Keeping it in `config/parsing.py` means one place to read and one place to change.
+
+More importantly, an adapter that fills in a default destroys the evidence that anything was missing. Normalization can only record "currency was absent, we assumed USD" if the absence survives that far. See decision 23.
+
+**Consequence.** Fields common to both layouts are extracted once in a shared base class, so the two adapters can only differ on the two polymorphic fields. They cannot drift on anything else by construction.
+
+---
+
+## 20. Feed shape is detected from the salary field
+
+**Decision.** A record is classified as structured when its `salary` is an object, with `location` checked only as a fallback.
+
+**Rationale.** Record shape is not uniform within a record. One sample posting has `location: null` alongside an object-valued `salary`. Keying detection on location would route it to the wrong adapter. Salary is present and consistently shaped in every sample record, which makes it the reliable discriminator.
+
+**Consequence.** Adding a third layout means one `FeedShape` member, one detection branch and one adapter. No existing adapter is touched.
+
+---
+
+## 21. Per-record failures are isolated; feed-level failures are not
+
+**Decision.** `load_feed` raises on a missing file, invalid JSON, or a top-level value that is not an array. The pipeline catches **any** exception from processing a single record and converts it into a rejected decision carrying a parse-error reason.
+
+**Rationale.** The two failures differ in kind. A feed that cannot be read has nothing to process and the caller needs to know immediately. A single malformed record among twenty must not cost the other nineteen — that is what "robust against invalid data" asks for.
+
+**On the broad `except`.** Catching `Exception` is deliberate here rather than careless. This is the isolation boundary; narrowing it would mean an unanticipated exception type escapes and aborts the batch, which is the exact failure the boundary exists to prevent. The exception is logged, not swallowed, and the record surfaces in the rejection log with its cause.
+
+---
+
+## 22. Location parsing is deliberately shallow
+
+**Decision.** Flat-shape locations are split on commas and assigned positionally: one part is a country, two are city and country, three or more are city, region and country. Nothing else is attempted.
+
+**Rationale.** The brief says explicitly not to invest here. Anything unrecognized classifies as `OTHER`, which is the correct outcome for the approval criteria regardless of how the text was split — the criteria only distinguish the US, Canada, elsewhere, and nowhere identifiable.
+
+**Known limitation.** A location like "Washington, DC" would be read as city and country rather than city and region. It resolves to `OTHER` and is rejected, where a proper parser would recognize a US location. No sample record hits this, and correcting it would mean building the gazetteer the brief asked us not to build.
+
+---
+
+## 23. Inference is recorded on the record
+
+**Decision.** `CanonicalJob.warnings` carries every value that was guessed rather than read — an inferred salary unit, a defaulted currency, an unparseable date, an unrecognized country.
+
+**Rationale.** With scraped input, the difference between what the source stated and what we assumed is information, and it is information that disappears the moment a default is silently applied. A posting whose currency was defaulted looks identical to one whose currency was given unless something records the difference.
+
+**Consequence.** Warnings are not errors and never affect a verdict. They travel to storage and into the UI, where a reviewer diagnosing a bad feed can see which fields were reconstructed.
+
+---
+
+## 24. One file per rule is a presentation choice
+
+**Decision.** The six approval criteria live in six files under `approval/rules/`, one class each, most of them under fifteen lines.
+
+**Rationale.** The criteria are the heart of the brief, and a directory listing that names each criterion communicates where that logic lives before anyone opens a file. The brief also asks for code organized into logical modules.
+
+**Stated plainly.** In production code this would be a single `rules.py` while the rules stay stateless and short. The split would earn its keep once a rule grew its own configuration or dependencies. The threshold is rule complexity, not rule count — and by that threshold this codebase currently sits on the wrong side of it, deliberately.
