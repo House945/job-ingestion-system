@@ -44,6 +44,9 @@ class CanonicalJob(BaseModel):
     'Canonical' means 'parsable', not 'meets the criteria'.
     Therefore, title can be empty and salary can be None—these are cases
     that should be rejected by RULES with a specific reason, rather than a validation exception.
+    Fields that were guessed rather than read are recorded in `warnings`. The
+    distinction between what the feed stated and what we inferred survives all
+    the way to the UI, which matters when the input is scraped.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -60,3 +63,4 @@ class CanonicalJob(BaseModel):
     salary: Salary | None
     posting_date: date | None
     comparable_annual_usd: Decimal | None
+    warnings: tuple[str, ...] = ()
