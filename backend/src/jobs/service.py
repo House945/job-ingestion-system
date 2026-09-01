@@ -1,6 +1,5 @@
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any
 
 from jobs.ingestion.pipeline import IngestionPipeline
 from jobs.models.canonical import CanonicalJob
@@ -35,7 +34,7 @@ class JobService:
         self._repository = repository
         self._rejection_log = rejection_log
 
-    def ingest(self, records: Iterable[Mapping[str, Any]]) -> IngestionSummary:
+    def ingest(self, records: Iterable[object]) -> IngestionSummary:
         decisions = self._pipeline.process(records)
 
         approved = [d.job for d in decisions if d.approved and d.job is not None]

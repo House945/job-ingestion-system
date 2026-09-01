@@ -18,8 +18,13 @@ export default function App() {
 
   const debouncedSearch = useDebouncedValue(query.search, 180)
   const effectiveQuery = useMemo(
-    () => ({ ...query, search: debouncedSearch }),
-    [query, debouncedSearch],
+    () => ({
+      search: debouncedSearch,
+      country: query.country,
+      sortBy: query.sortBy,
+      order: query.order,
+    }),
+    [debouncedSearch, query.country, query.sortBy, query.order],
   )
 
   const countries = useCountries()

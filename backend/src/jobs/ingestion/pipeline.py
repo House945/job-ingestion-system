@@ -1,6 +1,5 @@
 import logging
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any
 
 from jobs.approval.engine import RuleEngine
 from jobs.ingestion.adapters.registry import AdapterRegistry
@@ -29,11 +28,13 @@ class IngestionPipeline:
         self._normalizer = normalizer
         self._engine = engine
 
-    def process(self, records: Iterable[Mapping[str, Any]]) -> Sequence[Decision]:
+    def process(self, records: Iterable[object]) -> Sequence[Decision]:
         return [self._process_one(index, record) for index, record in enumerate(records)]
 
-    def _process_one(self, index: int, record: Mapping[str, Any]) -> Decision:
+    def _process_one(self, index: int, record: object) -> Decision:
         try:
+            if not isinstance(record, Mapping):
+                raise TypeError(f"expected a JSON object, got {type(record).__name__}")
             raw = self._registry.to_raw_job(index, record)
             job = self._normalizer.normalize(raw)
         except Exception as exc:
@@ -45,7 +46,7 @@ class IngestionPipeline:
                 reasons=(
                     RejectionReason(
                         code=RejectionCode.PARSE_ERROR,
-                        message=f"record could not be processed: {exc}",
+                        message="record could not be read as a job posting",
                     ),
                 ),
             )

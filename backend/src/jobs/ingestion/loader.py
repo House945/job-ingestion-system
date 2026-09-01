@@ -1,14 +1,13 @@
 import json
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
 
 class FeedLoadError(Exception):
     """Raised when a feed file cannot be read or does not contain a job list."""
 
 
-def load_feed(path: Path) -> Sequence[Any]:
+def load_feed(path: Path) -> Sequence[object]:
     """Read a feed file and return its records.
 
     Failures here are fatal because they leave nothing to process: an

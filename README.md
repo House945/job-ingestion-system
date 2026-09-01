@@ -14,7 +14,7 @@ feed fails are the most useful artifact when diagnosing feed quality.
 | --- | --- | --- |
 | Backend | Python 3.12, FastAPI, Pydantic v2 | Typed models with runtime validation at the ingestion boundary |
 | Frontend | React 19, TypeScript, Vite | Required by the brief; Vite for fast iteration |
-| Tooling | uv, ruff, mypy (strict), pytest, vitest | Type checking enforced from the first commit, not retrofitted |
+| Tooling | uv, ruff, mypy (strict), eslint, pytest, vitest | Type checking enforced from the first commit, not retrofitted |
 | Runtime | Docker Compose | One command to run the whole system |
 
 ## Quick start
@@ -32,6 +32,22 @@ Stop with `make down`.
 The feed is read from `data/jobs.json`, mounted read-only into the backend
 container. The path is configurable via the `JOBS_FEED_PATH` environment
 variable.
+
+![Approved postings, sorted by compensation](docs/01_approved.png)
+
+![Rejected postings with their reasons](docs/02_rejected.png)
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `make up` | Development stack at http://localhost:5173 |
+| `make down` | Stop the development stack |
+| `make up-prod` | Production stack at http://localhost:8080 |
+| `make down-prod` | Stop the production stack |
+| `make test` | pytest and vitest |
+| `make lint` | ruff, mypy strict, eslint, tsc |
+| `make format` | ruff format |
 
 ## Local development without Docker
 
@@ -73,6 +89,10 @@ salaries with hourly rates orders sensibly. Postings with no value for the sort
 field — an undated posting, for instance — always sort last, in both
 directions.
 
+An unrecognized `country` value returns 422 rather than an empty list, so a
+client can tell a typo from a genuine absence of matches. An empty value means
+no filter.
+
 ## Rejection log
 
 Every rejected posting is written to the `jobs.rejections` logger as a single
@@ -86,8 +106,8 @@ immediately how many postings were approved and why the rest were not.
 ## Testing
 
 ```bash
-make test      # backend (pytest) + frontend (vitest)
-make lint      # ruff, mypy strict, tsc
+make test
+make lint
 ```
 
 Backend tests are organized per architectural layer: adapters, normalization,
@@ -98,6 +118,12 @@ table in `backend/tests/fixtures/expected_decisions.py`.
 That table was written before the implementation, from the criteria in the
 brief, and is not generated from running code. When implementation and table
 disagree, the first question is which of the two is wrong.
+
+The brief asks to confirm that "both feeds do parse correctly". The sample data
+is a single file containing records in two different shapes, so this is read as
+two feed formats rather than two files. Both shapes are covered by
+`test_adapters.py`, which asserts that an equivalent posting produces an
+identical `RawJob` regardless of which shape it arrived in.
 
 `backend/tests/test_future_rule.py` demonstrates extensibility directly: it adds
 a market for remote UK postings at a 90,000 USD threshold — the brief's own
@@ -123,6 +149,8 @@ frontend/src/
 ├── api/             # typed API client
 ├── components/      # table, filters, tabs
 ├── hooks/           # data fetching and query state
+├── lib/             # formatting helpers
+├── test/            # vitest setup
 └── types/           # shared types
 
 data/jobs.json       # sample feed (committed — the system needs it to run)
@@ -135,31 +163,33 @@ in one place.
 
 ## Docker: development vs production
 
-The images in this repository are **development images**. They mount source
-directories as volumes and run hot-reloading dev servers — Uvicorn with
-`--reload`, Vite in dev mode. This is deliberate: it makes the system
-inspectable while working on it, and it is what `make up` gives a reviewer.
+Both configurations ship. `make up` runs development images — source mounted as
+volumes, Uvicorn with `--reload`, Vite in dev mode — which is what makes the
+system inspectable while working on it. `make up-prod` runs production images:
+the frontend is a static bundle served by nginx, the backend runs without
+`--reload` and without dev dependencies, and both copy their source in at build
+time rather than mounting it.
 
-They are explicitly not production images. A production setup would differ in
-several ways:
+| | `make up` | `make up-prod` |
+| --- | --- | --- |
+| Frontend | Vite dev server, port 5173 | Static bundle behind nginx, port 8080 |
+| Backend | `--reload`, port 8000 exposed | Two workers, reachable only through nginx |
+| Source | Bind-mounted for hot reload | Copied into the image |
+| Dependencies | Includes pytest, mypy, ruff | Runtime only |
 
-- **Frontend**: multi-stage build producing a static bundle served by nginx,
-  rather than the Vite dev server. The dev server is unoptimized, single-process,
-  and not intended to face traffic.
-- **Backend**: Uvicorn without `--reload`, behind a process manager, with worker
-  count tuned to the host.
-- **Source**: copied into the image at build time rather than bind-mounted, so
-  the image is a self-contained, reproducible artifact.
-- **Feed ingestion**: currently runs at application startup against a local
-  file. In production this would be a scheduled or event-driven job writing to
-  a persistent store, decoupled from the API process lifecycle.
-- **Storage**: the repository is an in-memory implementation behind a protocol.
-  Swapping in a database implementation requires no changes to the pipeline,
-  the rules, or the API layer.
+What is still mocked, and would not be in production:
 
-The distinction is called out rather than papered over: the brief asks for
-production-ready *structure and design*, and mocked infrastructure is
-explicitly permitted. The seams where real infrastructure would attach are
+- **Feed ingestion** runs at application startup against a local file. In
+  production this would be a scheduled or event-driven job writing to a
+  persistent store, decoupled from the API process lifecycle.
+- **Storage** is an in-memory implementation behind a protocol. Swapping in a
+  database implementation requires no changes to the pipeline, the rules, or
+  the API layer.
+- **Exchange rates** are static values behind a converter protocol rather than
+  a rate service.
+
+The brief permits mocked infrastructure and asks for production-ready
+*structure and design*. The seams where real infrastructure would attach are
 protocols, not concrete classes.
 
 ## Design notes
@@ -168,5 +198,6 @@ protocols, not concrete classes.
 approval criteria, each with the alternative that was rejected — including how
 remote postings outside the US and Canada are treated, how salaries with
 missing units or currencies are resolved, why hourly rates are not converted to
-annual figures for threshold checks, and where the system's tolerance for
-malformed input deliberately stops.
+annual figures for threshold checks, where the system's tolerance for malformed
+input deliberately stops, and which production properties are absent by design
+rather than by oversight.

@@ -20,23 +20,25 @@ Interpretation and design choices made while implementing this system, with the 
 
 **Rationale.** "Canonical" means parseable, not compliant. Structural validity and business validity are different concerns evaluated at different stages. If the model rejected empty titles, `TitleRule` could never fire and the offending record would vanish from the rejection log instead of appearing there with a reason — which is exactly the information the brief asks to be captured.
 
-**Consequence.** Every disqualifying condition is expressed as a rule, never as a model constraint. The rules are the single place where publication criteria live.
+**Consequence.** Every disqualifying condition is expressed as a rule, never as a model constraint. The rules are the single place where publication criteria live. `TitleRule` treats a whitespace-only title as empty itself rather than relying on normalization having stripped it first, so the criterion is complete within the rule.
 
 ---
 
 ## 3. Monetary amounts use `Decimal`
 
-**Decision.** Salaries and converted values are `Decimal`, never `float`.
+**Decision.** Salaries and converted values are `Decimal` everywhere a comparison or an arithmetic operation happens.
 
 **Rationale.** Binary floating point cannot represent common decimal fractions exactly. With currency conversion applied before a threshold comparison, rounding error accumulates in ways that are hard to predict and impossible to reason about at the boundary — and boundary behaviour is precisely what a 100,000 threshold tests.
+
+**Scope.** Two places on the path are not `Decimal`, both deliberately. `RawJob.salary_value` accepts whatever JSON supplied, including a float, and converts on entry to normalization. The API serialises amounts as JSON numbers, which is lossless at these magnitudes and gives the frontend something it can format directly. `Decimal` protects the computation, not the transport.
 
 ---
 
 ## 4. Hourly rates are not converted to annual for threshold checks
 
-**Decision.** The salary rule branches on unit and applies a separate threshold to each: 100,000/year or 45/hour.
+**Decision.** The salary rule branches on unit and applies a separate threshold to each: 100,000 per year or 45 per hour.
 
-**Rationale.** The two thresholds in the brief are not equivalent. At 2,080 billable hours, 45/hour is 93,600 — below the annual threshold. Normalizing hourly to annual and comparing against 100,000 would therefore reject postings the brief intends to approve. The non-equivalence is treated as deliberate.
+**Rationale.** The two thresholds in the brief are not equivalent. At 2,080 billable hours, 45 per hour is 93,600 — below the annual threshold. Normalizing hourly to annual and comparing against 100,000 would therefore reject postings the brief intends to approve. The non-equivalence is treated as deliberate.
 
 **Rejected alternative.** Normalize everything to an annual figure and use one threshold. Simpler rule, wrong results.
 
@@ -48,7 +50,7 @@ Interpretation and design choices made while implementing this system, with the 
 
 **Rationale.** Sorting and deciding need different numbers. Sorting a list that mixes annual and hourly figures by raw amount is meaningless — an hourly rate of 62.50 would sort below every annual salary. But the comparable figure cannot drive the approval decision without reintroducing the error described in decision 4.
 
-**Consequence.** The distinction between "a value used to compare" and "a value used to decide" is explicit in the model rather than implicit in usage.
+**Consequence.** The distinction between "a value used to compare" and "a value used to decide" is explicit in the model rather than implicit in usage. The field has exactly two readers: the repository's sort key and the API response schema.
 
 ---
 
@@ -68,7 +70,7 @@ Interpretation and design choices made while implementing this system, with the 
 
 **Rationale.** The feed contains a posting with `"salary": 62.5` and no unit. Rejecting it as unparseable would discard a posting that plainly qualifies. The sample data has no values between 65 and 20,000, so the margin around the ceiling is large.
 
-**Known limitation.** The heuristic would misread a day rate — 1,200/day would be read as an annual salary. The ceiling is a configured constant so that the assumption is visible and adjustable rather than embedded in parsing logic.
+**Known limitation.** The heuristic would misread a day rate — 1,200 per day would be read as an annual salary. The ceiling is a configured constant so that the assumption is visible and adjustable rather than embedded in parsing logic.
 
 **Rejected alternative.** Reject any salary without an explicit unit. Safer, but loses a posting the brief clearly expects to be approved.
 
@@ -168,7 +170,7 @@ Interpretation and design choices made while implementing this system, with the 
 
 Routing both rules through one policy keeps the coupling in a single named place, where it can be read and changed, rather than distributing it across the rules or hiding it in the engine.
 
-**Consequence.** Adding a market is one entry in `PUBLISHED_MARKETS`. The remote-UK example is implemented as a test (`test_future_[rule.py](http://rule.py)`) that adds `remote_uk` with a 90,000 threshold and asserts the previously rejected posting is approved. No rule, engine or pipeline code changes.
+**Consequence.** Adding a market is one entry in `PUBLISHED_MARKETS`. The remote-UK example is implemented as a test (`test_future_rule.py`) that adds `remote_uk` with a 90,000 threshold and asserts the previously rejected posting is approved. No rule, engine or pipeline code changes.
 
 **Rejected alternative.** "Acceptance profiles" — alternative sets of conditions combined with OR. More general, but rejection reporting degenerates: a posting failing every profile produces a cartesian product of reasons, and the log stops being diagnostic. Given that the log's value is precisely its diagnostic quality (decision 11), the trade was not worth making.
 
@@ -178,9 +180,9 @@ Routing both rules through one policy keeps the coupling in a single named place
 
 ## 18. Salary thresholds are strict inequalities
 
-**Decision.** A posting qualifies when compensation is **strictly greater** than the threshold. Exactly 100,000/year or exactly 45/hour is rejected.
+**Decision.** A posting qualifies when compensation is **strictly greater** than the threshold. Exactly 100,000 per year or exactly 45 per hour is rejected.
 
-**Rationale.** The brief says "over $100,000" and "above $45/hour". Both read as strict.
+**Rationale.** The brief says "over" for the annual threshold and "above" for the hourly one. Both read as strict.
 
 **Consequence.** None on the sample feed, which contains no boundary values. Recorded because a boundary decision made silently is a boundary decision nobody can audit, and the tests assert both sides of it.
 
@@ -192,7 +194,7 @@ Routing both rules through one policy keeps the coupling in a single named place
 
 **Rationale.** Two reasons, and the second matters more.
 
-Assumptions duplicated across adapters drift. If the flat adapter defaulted currency to USD, so would the structured one, and a third feed layout would carry a third copy of the same constant. Keeping it in `config/[parsing.py](http://parsing.py)` means one place to read and one place to change.
+Assumptions duplicated across adapters drift. If the flat adapter defaulted currency to USD, so would the structured one, and a third feed layout would carry a third copy of the same constant. Keeping it in `config/parsing.py` means one place to read and one place to change.
 
 More importantly, an adapter that fills in a default destroys the evidence that anything was missing. Normalization can only record "currency was absent, we assumed USD" if the absence survives that far. See decision 23.
 
@@ -212,11 +214,13 @@ More importantly, an adapter that fills in a default destroys the evidence that 
 
 ## 21. Per-record failures are isolated; feed-level failures are not
 
-**Decision.** `load_feed` raises on a missing file, invalid JSON, or a top-level value that is not an array. The pipeline catches **any** exception from processing a single record and converts it into a rejected decision carrying a parse-error reason.
+**Decision.** `load_feed` raises on exactly three conditions: a missing or unreadable file, invalid JSON, and a top-level value that is not an array. It does not inspect individual entries — the array is returned as it came. The pipeline catches **any** exception from processing a single record and converts it into a rejected decision carrying a parse-error reason.
 
 **Rationale.** The two failures differ in kind. A feed that cannot be read has nothing to process and the caller needs to know immediately. A single malformed record among twenty must not cost the other nineteen — that is what "robust against invalid data" asks for.
 
 **On the broad** `except`**.** Catching `Exception` is deliberate here rather than careless. This is the isolation boundary; narrowing it would mean an unanticipated exception type escapes and aborts the batch, which is the exact failure the boundary exists to prevent. The exception is logged, not swallowed, and the record surfaces in the rejection log with its cause.
+
+**Note.** An earlier version of the loader validated each array entry and raised on anything that was not an object, which quietly made a per-record failure fatal and contradicted this decision. The loader no longer inspects entries; two tests now cover the boundary from both sides — one asserting that the loader passes non-object entries through, one asserting that a batch containing one survives with the rest intact.
 
 ---
 
@@ -236,17 +240,19 @@ More importantly, an adapter that fills in a default destroys the evidence that 
 
 **Rationale.** With scraped input, the difference between what the source stated and what we assumed is information, and it is information that disappears the moment a default is silently applied. A posting whose currency was defaulted looks identical to one whose currency was given unless something records the difference.
 
-**Consequence.** Warnings are not errors and never affect a verdict. They travel to storage and into the UI, where a reviewer diagnosing a bad feed can see which fields were reconstructed.
+**Consequence.** Warnings are not errors and never affect a verdict. They are carried through storage and returned by the API for both approved and rejected postings.
+
+**Where it stops.** The UI surfaces them on approved postings only, as a marker on the compensation cell. The rejected table receives them and does not render them, because a rejected posting already carries its reasons and adding a second annotation layer to the same row obscured both. A reviewer diagnosing a rejected posting reads the reasons; the warnings are one API call away. This is the weakest point of the decision and the first thing to extend if warnings turn out to matter more than the reasons do.
 
 ---
 
 ## 24. One file per rule is a presentation choice
 
-**Decision.** The six approval criteria live in six files under `approval/rules/`, one class each, most of them under fifteen lines.
+**Decision.** The six approval criteria live in six files under `approval/rules/`, one class each, ranging from eleven lines (`title.py`) to fifty-four (`salary.py`).
 
 **Rationale.** The criteria are the heart of the brief, and a directory listing that names each criterion communicates where that logic lives before anyone opens a file. The brief also asks for code organized into logical modules.
 
-**Stated plainly.** In production code this would be a single [`rules.py`](http://rules.py) while the rules stay stateless and short. The split would earn its keep once a rule grew its own configuration or dependencies. The threshold is rule complexity, not rule count — and by that threshold this codebase currently sits on the wrong side of it, deliberately.
+**Stated plainly.** Four of the six are short enough that a single `rules.py` would read better. `salary.py` is not — it carries unit branching, currency conversion and market thresholds, and would earn its own file under any structure. The split was applied uniformly for the sake of the directory listing, which is a presentation choice rather than a structural one. In production the threshold would be rule complexity, and by that threshold only one of these six currently qualifies.
 
 ---
 
@@ -258,6 +264,44 @@ More importantly, an adapter that fills in a default destroys the evidence that 
 
 Left uncorrected, the permissive enum silently turns `?country=atlantis` into a filter on `UNKNOWN` and answers 200 with an empty list. The caller cannot distinguish "no postings match" from "you misspelled the parameter", which is exactly the kind of failure that costs an afternoon.
 
-**Implementation.** The route parses the parameter itself and rejects a value that only matched through the enum's fallback. `unknown` remains a legal value, because remote-anywhere postings genuinely carry it.
+**Implementation.** The route parses the parameter itself and rejects a value that only matched through the enum's fallback. `unknown` remains a legal value, because remote-anywhere postings genuinely carry it. An absent or empty parameter means "no filter" rather than "unknown country", so a client that always sends the key is not punished for leaving it blank.
 
 **Note.** This was caught by a test asserting 422, written before the behaviour was implemented. The permissive enum had quietly extended past the boundary it was designed for — a reminder that a tolerance introduced for one layer does not stay in that layer on its own.
+
+---
+
+## 26. The interface follows the system colour scheme
+
+**Decision.** Light and dark palettes are selected by `prefers-color-scheme`. There is no in-app theme switch.
+
+**Rationale.** On Apple platforms applications do not carry their own theme control: the user sets it once, at system level, and expects everything to follow. An in-app switch drifts out of step with the rest of the system the moment that setting changes, and it costs a permanent slot in the toolbar of a tool where every control has to earn its place.
+
+**Counter-argument, acknowledged.** Web expectations differ — a meaningful number of people keep the system light and want one particular application dark. Adding a three-state control (System / Light / Dark, defaulting to System) would be roughly forty lines and would not change the token structure, since the palettes are already CSS custom properties. It was left out for consistency with the platform, not because the choice is obvious.
+
+---
+
+## 27. The backend logs; the frontend does not
+
+**Decision.** Rejections, the ingestion summary and per-record parse failures are logged on the backend. The frontend writes nothing to the console: a failed request becomes a message in the interface, and an aborted request is discarded silently.
+
+**Rationale.** A console message is seen by a developer with the tools open, which is to say nobody. The person who needs to know the feed could not be loaded is the person looking at the empty screen, so that is where the information goes. Console logging in a shipped SPA is usually debugging residue wearing the costume of error handling.
+
+Aborted requests are discarded deliberately: cancelling an in-flight request when the query changes is normal operation, and logging it would fill the console with false errors on every keystroke.
+
+**Scope.** Both list requests surface their failures. `/jobs` and `/jobs/rejected` each carry an error state, and the rejected table renders a failure message rather than its empty state — a failed request must never produce the sentence "Every posting in this feed was approved", which would be a confident falsehood generated by a network error. `/countries` is the one deliberate exception: a failed country list degrades to "All countries", which is a usable state that claims nothing untrue.
+
+**Not present, and would be in production.** No request correlation ID across log lines — unnecessary for a single process ingesting a static file, and the first thing to add for concurrent ingestion from several sources. No frontend error reporting service, which is how an error the user never reports still reaches the team. Logs go to stdout rather than to an aggregator, which is correct in a container: the process writes, the platform collects.
+
+---
+
+## 28. Scope boundaries a production system would cross
+
+**Decision.** Several properties a production service would need are absent by design rather than by oversight. They are named here so the boundary is visible.
+
+**No pagination or result cap.** `JobQuery` carries search, filter and sort, and no limit. At twenty postings a cap would be ceremony; at a hundred thousand it is the first thing needed, and `JobQuery` is where it would go.
+
+**No stable job identity.** `source_index` is a position in one file. It serves as the API identifier, the React key and the rejection-log key, and a second feed would collide on all three. A real system would derive identity from the posting itself — source plus external id, or a content hash — which is a decision about deduplication policy rather than a field to add casually.
+
+**The repository is append-only.** Re-ingesting duplicates everything, and the rejection log grows without bound. Both are correct for a single startup ingestion and both break the moment ingestion becomes the scheduled job described in decision 16.
+
+**Rationale for naming rather than fixing.** Each is a few hours of work that would add machinery with nothing to exercise it, and the brief asks for production-ready structure rather than a production system. The seams where they would attach — `JobQuery`, `CanonicalJob`, the `JobRepository` protocol — already exist and are the right shape.

@@ -7,6 +7,13 @@ interface Props {
   error: string | null
 }
 
+/**
+ * Rejected postings need their own columns.
+ *
+ * A rejected posting may have no title, no location and no parseable salary,
+ * so it cannot share a row shape with an approved one. What it always has is
+ * reasons, which is why they get the widest column.
+ */
 export function RejectedTable({ jobs, pending, error }: Props) {
   if (pending) {
     return <div className="table-wrap"><p className="message">Loading…</p></div>
