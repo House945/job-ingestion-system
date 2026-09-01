@@ -1,0 +1,307 @@
+:root {
+  --canvas: #fbfbfd;
+  --surface: #ffffff;
+  --ink: #1d1d1f;
+  --ink-2: #6e6e73;
+  --separator: rgba(0, 0, 0, 0.08);
+  --fill: rgba(0, 0, 0, 0.045);
+  --fill-strong: rgba(0, 0, 0, 0.08);
+  --accent: #0071e3;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #161618;
+    --surface: #1f1f22;
+    --ink: #f5f5f7;
+    --ink-2: #98989d;
+    --separator: rgba(255, 255, 255, 0.1);
+    --fill: rgba(255, 255, 255, 0.06);
+    --fill-strong: rgba(255, 255, 255, 0.12);
+    --accent: #0a84ff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font: 400 15px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 var(--space-6) var(--space-8);
+}
+
+/* --- Header: translucent, content scrolls underneath ------------------- */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: var(--space-6) 0 var(--space-3);
+  background: color-mix(in srgb, var(--canvas) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+.header::after {
+  /* A scroll edge effect rather than a hard 1px rule under the bar. */
+  content: "";
+  position: absolute;
+  inset: 100% 0 auto;
+  height: 12px;
+  background: linear-gradient(var(--canvas), transparent);
+  pointer-events: none;
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.021em;
+}
+
+.subtitle {
+  margin: var(--space-1) 0 var(--space-4);
+  color: var(--ink-2);
+  font-size: 13px;
+  letter-spacing: 0.006em;
+}
+
+/* --- Segmented control -------------------------------------------------- */
+
+.segmented {
+  display: inline-flex;
+  position: relative;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--fill);
+}
+
+.segmented-indicator {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1), width 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.segment {
+  position: relative;
+  z-index: 1;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 14px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.segment[aria-selected="true"] {
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.segment-count {
+  margin-left: var(--space-2);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Toolbar ------------------------------------------------------------ */
+
+.toolbar {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+}
+
+.field {
+  appearance: none;
+  border: 1px solid var(--separator);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  min-height: 34px;
+}
+
+.field:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.search {
+  flex: 1 1 240px;
+  min-width: 180px;
+}
+
+.direction {
+  width: 34px;
+  padding: 0;
+  cursor: pointer;
+  color: var(--ink-2);
+}
+
+.direction:active {
+  transform: scale(0.94);
+}
+
+/* --- Table -------------------------------------------------------------- */
+
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: opacity 150ms ease;
+}
+
+.table-wrap[data-pending="true"] {
+  opacity: 0.55;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  font-size: 12px;
+  font-weight: 590;
+  letter-spacing: 0.01em;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--separator);
+  white-space: nowrap;
+}
+
+td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--separator);
+  vertical-align: baseline;
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.cell-title {
+  font-weight: 500;
+}
+
+.cell-muted {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+/* The one place the design raises its voice. */
+.cell-salary {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.salary-unit {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.absent {
+  color: var(--ink-2);
+}
+
+/* --- Reason chips ------------------------------------------------------- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.chip {
+  padding: 2px var(--space-2);
+  border-radius: 5px;
+  background: var(--fill-strong);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  cursor: help;
+}
+
+.inferred {
+  border-bottom: 1px dotted var(--ink-2);
+  cursor: help;
+}
+
+/* --- Empty state -------------------------------------------------------- */
+
+.empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.empty p {
+  margin: 0 0 var(--space-4);
+  color: var(--ink-2);
+}
+
+.button {
+  border: 1px solid var(--separator);
+  background: var(--surface);
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.button:active {
+  transform: scale(0.97);
+}
+
+.message {
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  color: var(--ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmented-indicator,
+  .table-wrap {
+    transition: opacity 150ms ease;
+  }
+
+  .button:active,
+  .direction:active {
+    transform: none;
+  }
+}
