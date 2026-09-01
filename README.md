@@ -17,6 +17,12 @@ feed fails are the most useful artifact when diagnosing feed quality.
 | Tooling | uv, ruff, mypy (strict), eslint, pytest, vitest | Type checking enforced from the first commit, not retrofitted |
 | Runtime | Docker Compose | One command to run the whole system |
 
+## Requirements
+
+Either Docker with Compose v2 (for `make up`), or Node 22+ and
+[uv](https://docs.astral.sh/uv/) for the local setup below. `uv` provisions
+Python 3.12 itself, so no system Python version is required.
+
 ## Quick start
 
 ```bash
@@ -32,6 +38,9 @@ Stop with `make down`.
 The feed is read from `data/jobs.json`, mounted read-only into the backend
 container. The path is configurable via the `JOBS_FEED_PATH` environment
 variable.
+
+No Docker? See **Local development without Docker** below — it runs the same
+system with two terminals.
 
 ![Approved postings, sorted by compensation](docs/01_approved.png)
 
@@ -110,6 +119,8 @@ sees both immediately.
 make test
 make lint
 ```
+
+Both targets run outside Docker and need `uv` and `npm` on the host.
 
 Backend tests are organized per architectural layer: adapters, normalization,
 each approval rule, the rule engine, storage, and API. A single parametrized
