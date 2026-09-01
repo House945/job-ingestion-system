@@ -263,3 +263,49 @@ Left uncorrected, the permissive enum silently turns `?country=atlantis` into a 
 **Implementation.** The route parses the parameter itself and rejects a value that only matched through the enum's fallback. `unknown` remains a legal value, because remote-anywhere postings genuinely carry it.
 
 **Note.** This was caught by a test asserting 422, written before the behaviour was implemented. The permissive enum had quietly extended past the boundary it was designed for — a reminder that a tolerance introduced for one layer does not stay in that layer on its own.
+
+---
+
+## 26. The interface follows the system colour scheme
+
+**Decision.** Light and dark palettes are selected by `prefers-color-scheme`.
+There is no in-app theme switch.
+
+**Rationale.** On Apple platforms applications do not carry their own theme
+control: the user sets it once, at system level, and expects everything to
+follow. An in-app switch drifts out of step with the rest of the system the
+moment that setting changes, and it costs a permanent slot in the toolbar of a
+tool where every control has to earn its place.
+
+**Counter-argument, acknowledged.** Web expectations differ — a meaningful
+number of people keep the system light and want one particular application
+dark. Adding a three-state control (System / Light / Dark, defaulting to
+System) would be roughly forty lines and would not change the token structure,
+since the palettes are already CSS custom properties. It was left out for
+consistency with the platform, not because the choice is obvious.
+
+---
+
+## 27. The backend logs; the frontend does not
+
+**Decision.** Rejections, the ingestion summary and per-record parse failures
+are logged on the backend. The frontend writes nothing to the console: a failed
+request becomes a message in the interface, and an aborted request is discarded
+silently.
+
+**Rationale.** A console message is seen by a developer with the tools open,
+which is to say nobody. The person who needs to know the feed could not be
+loaded is the person looking at the empty screen, so that is where the
+information goes. Console logging in a shipped SPA is usually debugging residue
+wearing the costume of error handling.
+
+Aborted requests are discarded deliberately: cancelling an in-flight request
+when the query changes is normal operation, and logging it would fill the
+console with false errors on every keystroke.
+
+**Not present, and would be in production.** No request correlation ID across
+log lines — unnecessary for a single process ingesting a static file, and the
+first thing to add for concurrent ingestion from several sources. No frontend
+error reporting service, which is how an error the user never reports still
+reaches the team. Logs go to stdout rather than to an aggregator, which is
+correct in a container: the process writes, the platform collects.
