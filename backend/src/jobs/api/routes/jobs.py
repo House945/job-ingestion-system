@@ -34,8 +34,10 @@ def _parse_country(value: str | None) -> Country | None:
     The enum degrades to UNKNOWN by design, because scraped feed data must not
     abort a batch. A query parameter is not scraped data: a typo here is a
     client error and should say so rather than return an empty list.
+
+    An absent or empty parameter means "no filter", not "unknown country".
     """
-    if value is None:
+    if not value:
         return None
 
     country = Country(value)

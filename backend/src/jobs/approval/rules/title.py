@@ -7,6 +7,6 @@ class TitleRule:
     """Title must not be null or empty."""
 
     def evaluate(self, job: CanonicalJob) -> RejectionReason | None:
-        if job.title:
+        if job.title.strip():
             return None
         return RejectionReason(code=RejectionCode.TITLE, message="title is missing or empty")

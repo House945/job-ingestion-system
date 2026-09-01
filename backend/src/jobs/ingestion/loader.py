@@ -8,12 +8,16 @@ class FeedLoadError(Exception):
     """Raised when a feed file cannot be read or does not contain a job list."""
 
 
-def load_feed(path: Path) -> Sequence[dict[str, Any]]:
+def load_feed(path: Path) -> Sequence[Any]:
     """Read a feed file and return its records.
 
-    Failures here are fatal for the whole batch, unlike per-record failures
-    later in the pipeline: if the file is missing or is not a JSON array, there
-    is nothing to process and the caller needs to know immediately.
+    Failures here are fatal because they leave nothing to process: an
+    unreadable file, malformed JSON, or a top level that is not an array.
+
+    A bad individual entry is not one of them. Entries are returned as they
+    came, including ones that are not objects at all, and the pipeline isolates
+    each failure into a rejected decision with a parse error. One unusable
+    record must not cost the others.
     """
     try:
         content = path.read_text(encoding="utf-8")
@@ -27,13 +31,7 @@ def load_feed(path: Path) -> Sequence[dict[str, Any]]:
 
     if not isinstance(parsed, list):
         raise FeedLoadError(
-          f"feed at {path} must contain a JSON array, got {type(parsed).__name__}"
-          )
+            f"feed at {path} must contain a JSON array, got {type(parsed).__name__}"
+        )
 
-    records: list[dict[str, Any]] = []
-    for position, entry in enumerate(parsed):
-        if not isinstance(entry, dict):
-            raise FeedLoadError(f"feed entry at position {position} is not an object")
-        records.append(entry)
-
-    return records
+    return parsed

@@ -10,6 +10,9 @@ export function useCountries(): CountryOption[] {
     const controller = new AbortController()
     fetchCountries(controller.signal)
       .then(setCountries)
+      // A failed country list degrades to "All countries", which is a usable
+      // state rather than a false statement. Unlike the rejected list, an
+      // empty filter dropdown claims nothing that is not true.
       .catch(() => undefined)
     return () => controller.abort()
   }, [])

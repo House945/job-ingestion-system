@@ -120,7 +120,11 @@ body {
   transition: color 150ms ease;
 }
 
-.segment[aria-selected="true"] {
+.segment:active {
+  transform: scale(0.97);
+}
+
+.segment[aria-pressed="true"] {
   color: var(--ink);
   font-weight: 550;
 }
@@ -301,7 +305,8 @@ tbody tr:last-child td {
   }
 
   .button:active,
-  .direction:active {
+  .direction:active,
+  .segment:active {
     transform: none;
   }
 }

@@ -34,9 +34,9 @@ class TestTitleRule:
     def test_passes_with_a_title(self, make_job):
         assert TitleRule().evaluate(make_job()) is None
 
-    @pytest.mark.parametrize("title", ["", "   "])
+    @pytest.mark.parametrize("title", ["", "   ", "\t"])
     def test_rejects_blank_title(self, make_job, title):
-        reason = TitleRule().evaluate(make_job(title=title.strip()))
+        reason = TitleRule().evaluate(make_job(title=title))
 
         assert reason is not None
         assert reason.code is RejectionCode.TITLE

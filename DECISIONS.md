@@ -1,8 +1,6 @@
 # Design Decisions
 
-Interpretation and design choices made while implementing this system, with the
-alternatives that were considered and rejected. Where the brief was ambiguous,
-the ambiguity is named rather than resolved silently.
+Interpretation and design choices made while implementing this system, with the alternatives that were considered and rejected. Where the brief was ambiguous, the ambiguity is named rather than resolved silently.
 
 ---
 
@@ -170,7 +168,7 @@ the ambiguity is named rather than resolved silently.
 
 Routing both rules through one policy keeps the coupling in a single named place, where it can be read and changed, rather than distributing it across the rules or hiding it in the engine.
 
-**Consequence.** Adding a market is one entry in `PUBLISHED_MARKETS`. The remote-UK example is implemented as a test (`test_future_rule.py`) that adds `remote_uk` with a 90,000 threshold and asserts the previously rejected posting is approved. No rule, engine or pipeline code changes.
+**Consequence.** Adding a market is one entry in `PUBLISHED_MARKETS`. The remote-UK example is implemented as a test (`test_future_[rule.py](http://rule.py)`) that adds `remote_uk` with a 90,000 threshold and asserts the previously rejected posting is approved. No rule, engine or pipeline code changes.
 
 **Rejected alternative.** "Acceptance profiles" — alternative sets of conditions combined with OR. More general, but rejection reporting degenerates: a posting failing every profile produces a cartesian product of reasons, and the log stops being diagnostic. Given that the log's value is precisely its diagnostic quality (decision 11), the trade was not worth making.
 
@@ -194,7 +192,7 @@ Routing both rules through one policy keeps the coupling in a single named place
 
 **Rationale.** Two reasons, and the second matters more.
 
-Assumptions duplicated across adapters drift. If the flat adapter defaulted currency to USD, so would the structured one, and a third feed layout would carry a third copy of the same constant. Keeping it in `config/parsing.py` means one place to read and one place to change.
+Assumptions duplicated across adapters drift. If the flat adapter defaulted currency to USD, so would the structured one, and a third feed layout would carry a third copy of the same constant. Keeping it in `config/[parsing.py](http://parsing.py)` means one place to read and one place to change.
 
 More importantly, an adapter that fills in a default destroys the evidence that anything was missing. Normalization can only record "currency was absent, we assumed USD" if the absence survives that far. See decision 23.
 
@@ -218,7 +216,7 @@ More importantly, an adapter that fills in a default destroys the evidence that 
 
 **Rationale.** The two failures differ in kind. A feed that cannot be read has nothing to process and the caller needs to know immediately. A single malformed record among twenty must not cost the other nineteen — that is what "robust against invalid data" asks for.
 
-**On the broad `except`.** Catching `Exception` is deliberate here rather than careless. This is the isolation boundary; narrowing it would mean an unanticipated exception type escapes and aborts the batch, which is the exact failure the boundary exists to prevent. The exception is logged, not swallowed, and the record surfaces in the rejection log with its cause.
+**On the broad** `except`**.** Catching `Exception` is deliberate here rather than careless. This is the isolation boundary; narrowing it would mean an unanticipated exception type escapes and aborts the batch, which is the exact failure the boundary exists to prevent. The exception is logged, not swallowed, and the record surfaces in the rejection log with its cause.
 
 ---
 
@@ -248,7 +246,7 @@ More importantly, an adapter that fills in a default destroys the evidence that 
 
 **Rationale.** The criteria are the heart of the brief, and a directory listing that names each criterion communicates where that logic lives before anyone opens a file. The brief also asks for code organized into logical modules.
 
-**Stated plainly.** In production code this would be a single `rules.py` while the rules stay stateless and short. The split would earn its keep once a rule grew its own configuration or dependencies. The threshold is rule complexity, not rule count — and by that threshold this codebase currently sits on the wrong side of it, deliberately.
+**Stated plainly.** In production code this would be a single [`rules.py`](http://rules.py) while the rules stay stateless and short. The split would earn its keep once a rule grew its own configuration or dependencies. The threshold is rule complexity, not rule count — and by that threshold this codebase currently sits on the wrong side of it, deliberately.
 
 ---
 
@@ -263,49 +261,3 @@ Left uncorrected, the permissive enum silently turns `?country=atlantis` into a 
 **Implementation.** The route parses the parameter itself and rejects a value that only matched through the enum's fallback. `unknown` remains a legal value, because remote-anywhere postings genuinely carry it.
 
 **Note.** This was caught by a test asserting 422, written before the behaviour was implemented. The permissive enum had quietly extended past the boundary it was designed for — a reminder that a tolerance introduced for one layer does not stay in that layer on its own.
-
----
-
-## 26. The interface follows the system colour scheme
-
-**Decision.** Light and dark palettes are selected by `prefers-color-scheme`.
-There is no in-app theme switch.
-
-**Rationale.** On Apple platforms applications do not carry their own theme
-control: the user sets it once, at system level, and expects everything to
-follow. An in-app switch drifts out of step with the rest of the system the
-moment that setting changes, and it costs a permanent slot in the toolbar of a
-tool where every control has to earn its place.
-
-**Counter-argument, acknowledged.** Web expectations differ — a meaningful
-number of people keep the system light and want one particular application
-dark. Adding a three-state control (System / Light / Dark, defaulting to
-System) would be roughly forty lines and would not change the token structure,
-since the palettes are already CSS custom properties. It was left out for
-consistency with the platform, not because the choice is obvious.
-
----
-
-## 27. The backend logs; the frontend does not
-
-**Decision.** Rejections, the ingestion summary and per-record parse failures
-are logged on the backend. The frontend writes nothing to the console: a failed
-request becomes a message in the interface, and an aborted request is discarded
-silently.
-
-**Rationale.** A console message is seen by a developer with the tools open,
-which is to say nobody. The person who needs to know the feed could not be
-loaded is the person looking at the empty screen, so that is where the
-information goes. Console logging in a shipped SPA is usually debugging residue
-wearing the costume of error handling.
-
-Aborted requests are discarded deliberately: cancelling an in-flight request
-when the query changes is normal operation, and logging it would fill the
-console with false errors on every keystroke.
-
-**Not present, and would be in production.** No request correlation ID across
-log lines — unnecessary for a single process ingesting a static file, and the
-first thing to add for concurrent ingestion from several sources. No frontend
-error reporting service, which is how an error the user never reports still
-reaches the team. Logs go to stdout rather than to an aggregator, which is
-correct in a container: the process writes, the platform collects.

@@ -103,3 +103,9 @@ def test_startup_ingests_the_configured_feed(feed_path, monkeypatch):
 
     with TestClient(create_app()) as test_client:
         assert len(test_client.get("/jobs").json()) == APPROVED_COUNT
+
+def test_empty_country_parameter_means_no_filter(client):
+    response = client.get("/jobs", params={"country": ""})
+
+    assert response.status_code == 200
+    assert len(response.json()) == APPROVED_COUNT

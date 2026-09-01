@@ -18,7 +18,4 @@ dist/
 .vscode/
 .DS_Store
 
-#Claude
-.claude/settings.local.json
-.claude/todos/
-.claude/worktrees/
+REVIEW.md

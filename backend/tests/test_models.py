@@ -88,7 +88,7 @@ def _build_job(title: str = "Backend Engineer") -> CanonicalJob:
     return CanonicalJob(
         source_index=0,
         title=title,
-        description="Opis",
+        description="Description",
         company="NextGen Systems",
         location=Location(country=Country.UNITED_STATES, city="Austin", region="TX"),
         is_remote=False,

@@ -1,8 +1,7 @@
 [project]
 name = "jobs"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+description = "Job Ingestion System"
 authors = [
     { name = "Sebastian Krawczyk", email = "seba.krawczyk94@gmail.com" }
 ]
@@ -12,9 +11,6 @@ dependencies = [
     "pydantic>=2.13.5",
     "uvicorn[standard]>=0.52.4",
 ]
-
-[project.scripts]
-jobs = "jobs:main"
 
 [build-system]
 requires = ["hatchling"]

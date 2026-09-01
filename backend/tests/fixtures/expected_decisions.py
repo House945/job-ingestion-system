@@ -75,7 +75,7 @@ EXPECTED: tuple[ExpectedDecision, ...] = (
     ExpectedDecision(18, "ClientBridge - Customer Success Manager", True, frozenset()),
     ExpectedDecision(
         19,
-        "OpsFlex - (pusty tytul)",
+        "OpsFlex - (no title)",
         False,
         frozenset(
             {

@@ -4,6 +4,7 @@ import pytest
 
 from jobs.config.defaults import build_pipeline
 from jobs.ingestion.loader import load_feed
+from jobs.models.enums import RejectionCode
 from tests.fixtures.expected_decisions import APPROVED_COUNT, EXPECTED
 
 
@@ -30,7 +31,6 @@ def test_approved_count(decisions):
 
 def test_no_record_produced_a_parse_error(decisions):
     """Every sample record is processable; a parse error here means a real bug."""
-    from jobs.models.enums import RejectionCode
 
     assert not any(RejectionCode.PARSE_ERROR in d.codes for d in decisions)
 
@@ -45,3 +45,17 @@ def test_malformed_record_does_not_abort_the_batch():
     decisions = build_pipeline().process(records)
 
     assert len(decisions) == 3
+
+def test_non_object_entry_does_not_abort_the_batch():
+    """A scraped feed can contain anything. Two good records must survive one bad one."""
+    records: list[Any] = [
+        {"title": "Fine", "salary": 200000},
+        "oops",
+        {"title": "Also fine", "salary": 300000},
+    ]
+
+    decisions = build_pipeline().process(records)
+
+    assert len(decisions) == 3
+    assert RejectionCode.PARSE_ERROR in decisions[1].codes
+    assert RejectionCode.PARSE_ERROR not in decisions[0].codes

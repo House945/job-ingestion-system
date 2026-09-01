@@ -19,7 +19,7 @@ export default function App() {
   const debouncedSearch = useDebouncedValue(query.search, 180)
   const effectiveQuery = useMemo(
     () => ({ ...query, search: debouncedSearch }),
-    [query.country, query.sortBy, query.order, debouncedSearch],
+    [query, debouncedSearch],
   )
 
   const countries = useCountries()
@@ -62,7 +62,7 @@ export default function App() {
           onClearSearch={() => setQuery({ ...query, search: '' })}
         />
       ) : (
-        <RejectedTable jobs={rejected.jobs} pending={rejected.pending} />
+        <RejectedTable jobs={rejected.jobs} pending={rejected.pending} error={rejected.error} />
       )}
     </div>
   )

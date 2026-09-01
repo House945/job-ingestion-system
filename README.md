@@ -33,10 +33,6 @@ The feed is read from `data/jobs.json`, mounted read-only into the backend
 container. The path is configurable via the `JOBS_FEED_PATH` environment
 variable.
 
-![Approved postings, sorted by compensation](docs/01_approved.png)
-
-![Rejected postings with their reasons](docs/02_rejected.png)
-
 ## Local development without Docker
 
 Backend:

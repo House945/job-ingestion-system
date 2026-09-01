@@ -55,7 +55,7 @@ export function Toolbar({ query, countries, onChange }: Props) {
         className="field direction"
         disabled={!query.sortBy}
         aria-label={query.order === 'desc' ? 'Sort ascending' : 'Sort descending'}
-        onPointerDown={toggleOrder}
+        onClick={toggleOrder}
       >
         {query.order === 'desc' ? '↓' : '↑'}
       </button>

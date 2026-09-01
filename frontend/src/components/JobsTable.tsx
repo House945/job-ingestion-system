@@ -19,7 +19,7 @@ export function JobsTable({ jobs, pending, searchTerm, onClearSearch }: Props) {
               : 'No approved postings to show.'}
           </p>
           {searchTerm && (
-            <button type="button" className="button" onPointerDown={onClearSearch}>
+            <button type="button" className="button" onClick={onClearSearch}>
               Clear search
             </button>
           )}

@@ -15,8 +15,14 @@ interface Props {
 /**
  * Two-way switch with a sliding indicator.
  *
- * Selection commits on pointer-down rather than click, so the indicator starts
- * moving the instant the control is pressed.
+ * Deliberately not a `tablist`: the full ARIA tabs pattern expects arrow-key
+ * navigation, a roving tabindex and an associated tabpanel, and declaring the
+ * roles without them announces behaviour the control does not have. Two
+ * buttons with `aria-pressed` describe what this actually is.
+ *
+ * The action commits on click so keyboard users reach it. Press feedback is
+ * immediate regardless, because it lives in CSS `:active` rather than in a
+ * pointer handler.
  */
 export function SegmentedControl({ segments, selected, onSelect }: Props) {
   const container = useRef<HTMLDivElement>(null)
@@ -31,7 +37,7 @@ export function SegmentedControl({ segments, selected, onSelect }: Props) {
   }, [selected, segments])
 
   return (
-    <div className="segmented" role="tablist" ref={container}>
+    <div className="segmented" ref={container}>
       <span
         className="segmented-indicator"
         aria-hidden="true"
@@ -44,11 +50,10 @@ export function SegmentedControl({ segments, selected, onSelect }: Props) {
         <button
           key={segment.id}
           type="button"
-          role="tab"
           data-segment={segment.id}
-          aria-selected={segment.id === selected}
+          aria-pressed={segment.id === selected}
           className="segment"
-          onPointerDown={() => onSelect(segment.id)}
+          onClick={() => onSelect(segment.id)}
         >
           {segment.label}
           {segment.count !== null && (

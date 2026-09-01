@@ -4,18 +4,22 @@ import type { RejectedJob } from '../types/api'
 interface Props {
   jobs: RejectedJob[]
   pending: boolean
+  error: string | null
 }
 
-/**
- * Rejected postings need their own columns.
- *
- * A rejected posting may have no title, no location and no parseable salary,
- * so it cannot share a row shape with an approved one. What it always has is
- * reasons, which is why they get the widest column.
- */
-export function RejectedTable({ jobs, pending }: Props) {
+export function RejectedTable({ jobs, pending, error }: Props) {
   if (pending) {
     return <div className="table-wrap"><p className="message">Loading…</p></div>
+  }
+
+  if (error) {
+    return (
+      <div className="table-wrap">
+        <p className="message">
+          Rejected postings could not be loaded. Check that the API is running, then reload.
+        </p>
+      </div>
+    )
   }
 
   if (jobs.length === 0) {

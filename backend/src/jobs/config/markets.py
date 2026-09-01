@@ -19,7 +19,7 @@ class Market:
 # so that such a posting is still evaluated on salary and reports every reason
 # it failed rather than only the geographic one.
 DEFAULT_MARKET = Market(
-    name="default",
+    name="standard thresholds",
     annual_threshold_usd=Decimal("100000"),
     hourly_threshold_usd=Decimal("45"),
 )
