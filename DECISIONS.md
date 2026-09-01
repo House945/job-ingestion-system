@@ -142,6 +142,8 @@ the ambiguity is named rather than resolved silently.
 
 **Rationale.** The feed is scraped, so unrecognized values are expected rather than exceptional. A parse failure on one field of one record must not abort a batch. Whether `UNKNOWN` is acceptable is a question for the rules — an unknown employment type is not full-time and is therefore rejected, with a reason.
 
+**Scope.** This tolerance is correct for feed input and wrong for client input. See decision 25.
+
 ---
 
 ## 15. Storage is in-memory behind a repository protocol
@@ -247,3 +249,17 @@ More importantly, an adapter that fills in a default destroys the evidence that 
 **Rationale.** The criteria are the heart of the brief, and a directory listing that names each criterion communicates where that logic lives before anyone opens a file. The brief also asks for code organized into logical modules.
 
 **Stated plainly.** In production code this would be a single `rules.py` while the rules stay stateless and short. The split would earn its keep once a rule grew its own configuration or dependencies. The threshold is rule complexity, not rule count — and by that threshold this codebase currently sits on the wrong side of it, deliberately.
+
+---
+
+## 25. Tolerance stops at the API boundary
+
+**Decision.** Enum values arriving from the feed degrade to `UNKNOWN` (decision 14). Enum values arriving as query parameters do not: an unrecognized `country` returns 422 rather than being coerced.
+
+**Rationale.** The two inputs deserve different treatment because they have different authors. Scraped feed data is written by a third party we cannot correct, arrives in bulk, and must not abort a batch over one bad field — tolerance there is the whole point. A query parameter is written by a client we can talk to, arrives one at a time, and a typo in it is a client error.
+
+Left uncorrected, the permissive enum silently turns `?country=atlantis` into a filter on `UNKNOWN` and answers 200 with an empty list. The caller cannot distinguish "no postings match" from "you misspelled the parameter", which is exactly the kind of failure that costs an afternoon.
+
+**Implementation.** The route parses the parameter itself and rejects a value that only matched through the enum's fallback. `unknown` remains a legal value, because remote-anywhere postings genuinely carry it.
+
+**Note.** This was caught by a test asserting 422, written before the behaviour was implemented. The permissive enum had quietly extended past the boundary it was designed for — a reminder that a tolerance introduced for one layer does not stay in that layer on its own.
