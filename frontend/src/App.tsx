@@ -53,19 +53,21 @@ export default function App() {
         )}
       </header>
 
-      {error ? (
-        <div className="table-wrap">
-          <p className="message">
-            The feed could not be loaded. Check that the API is running, then reload.
-          </p>
-        </div>
-      ) : tab === 'approved' ? (
-        <JobsTable
-          jobs={jobs}
-          pending={pending}
-          searchTerm={debouncedSearch}
-          onClearSearch={() => setQuery({ ...query, search: '' })}
-        />
+      {tab === 'approved' ? (
+        error ? (
+          <div className="table-wrap">
+            <p className="message">
+              The feed could not be loaded. Check that the API is running, then reload.
+            </p>
+          </div>
+        ) : (
+          <JobsTable
+            jobs={jobs}
+            pending={pending}
+            searchTerm={debouncedSearch}
+            onClearSearch={() => setQuery({ ...query, search: '' })}
+          />
+        )
       ) : (
         <RejectedTable jobs={rejected.jobs} pending={rejected.pending} error={rejected.error} />
       )}

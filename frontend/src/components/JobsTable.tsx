@@ -52,7 +52,10 @@ export function JobsTable({ jobs, pending, searchTerm, onClearSearch }: Props) {
 
 function JobRow({ job }: { job: Job }) {
   const salary = formatSalary(job.salary)
-  const inferred = job.warnings.length > 0
+  const salaryWarnings = job.warnings.filter(
+    (w) => w.includes('salary') || w.includes('currency'),
+  )
+  const inferred = salaryWarnings.length > 0
 
   return (
     <tr>
@@ -62,7 +65,7 @@ function JobRow({ job }: { job: Job }) {
       <td className="cell-muted">{formatDate(job.posting_date)}</td>
       <td className="cell-salary">
         {salary ? (
-          <span className={inferred ? 'inferred' : undefined} title={job.warnings.join('\n')}>
+          <span className={inferred ? 'inferred' : undefined} title={salaryWarnings.join('\n')}>
             {salary.amount}
             <span className="salary-unit">{salary.unit}</span>
           </span>

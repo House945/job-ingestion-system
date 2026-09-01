@@ -30,7 +30,7 @@ Interpretation and design choices made while implementing this system, with the 
 
 **Rationale.** Binary floating point cannot represent common decimal fractions exactly. With currency conversion applied before a threshold comparison, rounding error accumulates in ways that are hard to predict and impossible to reason about at the boundary — and boundary behaviour is precisely what a 100,000 threshold tests.
 
-**Scope.** Two places on the path are not `Decimal`, both deliberately. `RawJob.salary_value` accepts whatever JSON supplied, including a float, and converts on entry to normalization. The API serialises amounts as JSON numbers, which is lossless at these magnitudes and gives the frontend something it can format directly. `Decimal` protects the computation, not the transport.
+**Scope.** Values arrive from the feed as whatever JSON supplied, are converted once during normalization, and are serialised back as JSON numbers at the API boundary. Every arithmetic operation and every threshold comparison in between is `Decimal` on `Decimal`. `Decimal` protects the computation, not the transport.
 
 ---
 
@@ -248,7 +248,7 @@ More importantly, an adapter that fills in a default destroys the evidence that 
 
 ## 24. One file per rule is a presentation choice
 
-**Decision.** The six approval criteria live in six files under `approval/rules/`, one class each, ranging from eleven lines (`title.py`) to fifty-four (`salary.py`).
+**Decision.** The six approval criteria live in six files under `approval/rules/`, one class each, ranging from twelve lines (`title.py`) to fifty-four (`salary.py`).
 
 **Rationale.** The criteria are the heart of the brief, and a directory listing that names each criterion communicates where that logic lives before anyone opens a file. The brief also asks for code organized into logical modules.
 

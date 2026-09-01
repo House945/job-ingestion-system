@@ -100,8 +100,9 @@ structured JSON line carrying the posting's index, title, company and the full
 list of rejection reasons. The log is the machine-readable record and works
 with no UI running; the rejected tab in the interface reads the same data.
 
-Startup logs a one-line ingestion summary, so a reviewer running `make up` sees
-immediately how many postings were approved and why the rest were not.
+Startup logs one line per rejected posting with its reasons, followed by a
+one-line ingestion summary with the counts, so a reviewer running `make up`
+sees both immediately.
 
 ## Testing
 
@@ -122,8 +123,9 @@ disagree, the first question is which of the two is wrong.
 The brief asks to confirm that "both feeds do parse correctly". The sample data
 is a single file containing records in two different shapes, so this is read as
 two feed formats rather than two files. Both shapes are covered by
-`test_adapters.py`, which asserts that an equivalent posting produces an
-identical `RawJob` regardless of which shape it arrived in.
+`test_adapters.py`, which asserts that an equivalent posting produces the same
+`RawJob` whichever shape it arrived in, excluding the currency field that the
+flat feed does not carry at all.
 
 `backend/tests/test_future_rule.py` demonstrates extensibility directly: it adds
 a market for remote UK postings at a 90,000 USD threshold — the brief's own
@@ -142,7 +144,8 @@ backend/src/jobs/
 ├── approval/        # market policy and rule engine
 │   └── rules/       # one file per approval criterion
 ├── storage/         # job repository, rejection log
-├── api/             # FastAPI application, routes and response schemas
+├── api/             # FastAPI application and response schemas
+│   └── routes/      # HTTP routes
 └── config/          # markets, thresholds, parsing assumptions, settings
 
 frontend/src/
